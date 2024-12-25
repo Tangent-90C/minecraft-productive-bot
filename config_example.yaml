@@ -1,0 +1,17 @@
+bot:
+  # 这个配置文件记得改名为config.yaml
+  password: "123456" # 这个是你的密码，用于服务器内登录，对应`/login 123456`，记得修改
+  options:
+    host: "d.fishport.net"
+    port: 31450
+    username: "Peter" # 用户名
+    auth: "offline"
+    locale: "zh_CN"
+    version: "1.20.1"
+    viewDistance: "far"
+
+  webserver:
+    inventoryViewer_port: 3001
+    mineflayerViewer_firstPerson_port: 3002
+    mineflayerViewer_port: 3003
+    control_web_port: 3000

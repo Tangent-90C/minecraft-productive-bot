@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Control</title>
+    <style>
+        #container {
+            display: flex;
+            justify-content: space-between;
+        }
+        #botInfo {
+            flex: 1;
+            margin-right: 10px;
+        }
+        #botView {
+            flex: 2;
+            height: 600px;
+            border: none;
+        }
+        #chatMessages {
+            background-color: gray;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            height: 500px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+<h1>Bot Control Console</h1>
+<div id="container">
+    <div id="botInfo">
+        <p>Use WASD keys to move the bot, Shift to sprint, and C to sneak.</p>
+        <button id="reviveButton">Revive Bot</button>
+        <button id="toggleMouseControl">Enable Mouse Control</button>
+        <p>Health: <span id="health">0</span></p>
+        <p>Hunger: <span id="hunger">0</span></p>
+        <p>Position: X: <span id="posX">0</span>, Y: <span id="posY">0</span>, Z: <span id="posZ">0</span></p>
+        <p>Speed: X: <span id="speedX">0</span>, Y: <span id="speedY">0</span>, Z: <span id="speedZ">0</span>, Total Speed: <span id="totalSpeed">0</span></p>
+        <p>Direction: <span id="direction">0</span></p>
+    </div>
+    <iframe id="botView"></iframe>
+</div>
+<div id="chat">
+    <h2>Chat</h2>
+    <input type="text" id="chatInput" placeholder="Type a message...">
+    <button id="sendChatButton">Send</button>
+    <div id="chatMessages"></div>
+</div>
+<script>
+    const keyState = {};
+    let mouseControlEnabled = false;
+
+    document.addEventListener('keydown', (event) => {
+        if (document.activeElement.id === 'chatInput') return; // Skip if chat input is focused
+        const keyName = event.key.toLowerCase();
+        if (keyName === 'c') {
+            if (!keyState['sneak']) {
+                keyState['sneak'] = true;
+                sendControlCommand('sneak', true);
+            }
+            event.preventDefault();
+        } else if (!keyState[keyName]) {
+            keyState[keyName] = true;
+            sendControlCommand(keyName, true);
+            event.preventDefault();
+        }
+    });
+
+    document.addEventListener('keyup', (event) => {
+        if (document.activeElement.id === 'chatInput') return; // Skip if chat input is focused
+        const keyName = event.key.toLowerCase();
+        if (keyName === 'c') {
+            if (keyState['sneak']) {
+                keyState['sneak'] = false;
+                sendControlCommand('sneak', false);
+            }
+            event.preventDefault();
+        } else if (keyState[keyName]) {
+            keyState[keyName] = false;
+            sendControlCommand(keyName, false);
+            event.preventDefault();
+        }
+    });
+
+    window.addEventListener('blur', () => {
+        for (const key in keyState) {
+            if (keyState[key]) {
+                keyState[key] = false;
+                sendControlCommand(key, false);
+            }
+        }
+    });
+
+    document.getElementById('reviveButton').addEventListener('click', () => {
+        fetch('/revive', {
+            method: 'POST'
+        });
+    });
+
+    document.getElementById('toggleMouseControl').addEventListener('click', () => {
+        mouseControlEnabled = !mouseControlEnabled;
+        document.getElementById('toggleMouseControl').textContent = mouseControlEnabled ? 'Disable Mouse Control' : 'Enable Mouse Control';
+        if (mouseControlEnabled) {
+            document.body.requestPointerLock();
+        } else {
+            document.exitPointerLock();
+        }
+    });
+
+    document.addEventListener('mousemove', (event) => {
+        if (mouseControlEnabled) {
+            const { movementX, movementY } = event;
+            sendMouseMovement(movementX, movementY);
+        }
+    });
+
+    document.addEventListener('pointerlockchange', () => {
+        if (document.pointerLockElement === null) {
+            mouseControlEnabled = false;
+            document.getElementById('toggleMouseControl').textContent = 'Enable Mouse Control';
+        }
+    });
+
+    document.getElementById('sendChatButton').addEventListener('click', () => {
+        const chatInput = document.getElementById('chatInput');
+        const message = chatInput.value;
+        if (message) {
+            sendChatMessage(message);
+            chatInput.value = '';
+        }
+    });
+
+    function sendControlCommand(keyName, state) {
+        let action;
+        switch (keyName) {
+            case 'w':
+                action = 'forward';
+                break;
+            case 'a':
+                action = 'left';
+                break;
+            case 's':
+                action = 'back';
+                break;
+            case 'd':
+                action = 'right';
+                break;
+            case ' ':
+                action = 'jump';
+                break;
+            case 'shift':
+                action = 'sprint';
+                break;
+            case 'sneak':
+                action = 'sneak';
+                break;
+            default:
+                return;
+        }
+
+        fetch('/control', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ action, state })
+        });
+    }
+
+    function sendMouseMovement(movementX, movementY) {
+        fetch('/mouse-move', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ movementX, movementY })
+        });
+    }
+
+    function sendChatMessage(message) {
+        fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message })
+        });
+    }
+
+    function updateStatus() {
+        fetch('/status')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('health').textContent = data.health;
+                document.getElementById('hunger').textContent = data.hunger;
+                document.getElementById('posX').textContent = data.position.x.toFixed(2);
+                document.getElementById('posY').textContent = data.position.y.toFixed(2);
+                document.getElementById('posZ').textContent = data.position.z.toFixed(2);
+                document.getElementById('direction').textContent = data.direction.toFixed(2);
+                document.getElementById('speedX').textContent = data.speed.x.toFixed(2);
+                document.getElementById('speedY').textContent = data.speed.y.toFixed(2);
+                document.getElementById('speedZ').textContent = data.speed.z.toFixed(2);
+                document.getElementById('totalSpeed').textContent = data.totalSpeed.toFixed(2);
+            });
+    }
+
+    setInterval(updateStatus, 100); // Update every second
+
+    const chatMessages = document.getElementById('chatMessages');
+    const ws = new WebSocket(`ws://${window.location.host}`);
+
+    ws.onmessage = (event) => {
+        const { message } = JSON.parse(event.data);
+        const messageElement = document.createElement('p');
+        messageElement.innerHTML = message;
+        chatMessages.appendChild(messageElement);
+    };
+
+    // Fetch the bot view URL and set the iframe src
+    fetch('/bot-view-url')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('botView').src = data.url;
+        });
+</script>
+</body>
+</html>

@@ -1,13 +1,13 @@
-
 // ===============配置区====================
+
 // 该脚本在登录时，默认你在登录大厅里把指南针握在手上
 
-// 自动登录用的用户名和对应的密码，记得改成你自己的
 const userList = [
   { username: "Alice", password: "123456" },
   { username: "Bob", password: "admin" },
 ];
 
+// 当前使用的用户名，登录输密码用，不填就自动获取
 let username_now;
 const server_ip = "d.fishport.net";
 const server_port = 31450;
@@ -22,7 +22,7 @@ const wait_server_react = 1000;
 
 // ===============配置区====================
 
-// 检查事件类型是否为 Service
+// 检查事件类型是否为 Service，即是否被作为 Service 运行
 JsMacros.assertEvent(event, "Service");
 // 定义一个变量，用于记录重连次数
 let reconnect_times = 0;
@@ -33,22 +33,14 @@ function getPasswordByUsername(username) {
   return user ? user.password : null; // 如果找到返回密码，否则返回 null
 }
 
-// JSMarcos 没有查询自己用户名的方法，所以只能用获取玩家列表的方法来曲线救国了
-function guess_login() {
-  const server_player_list = World.getLoadedPlayers();
-  const local_usernames = userList.map((user) => user.username.trim());
-  const server_usernames = server_player_list.map((user) =>
-    user.getName().getString().trim()
-  );
-
-  local_usernames.forEach((item_l, index_l) => {
-    server_usernames.forEach((item_s, index_s) => {
-      if (item_l == item_s) {
-        //Chat.log(userList[index_l].password);
-        Chat.say(`/login ${userList[index_l].password}`);
-      }
-    });
-  });
+function get_username() {
+  if (username_now === undefined) {
+    // 获取当前玩家的用户名，调用的是 Minecraft 的原始接口，这个方法在1.20.1有效，其它版本不确定是否有效。
+    const current_username = Client.getMinecraft().method_1548().method_1676();
+    return current_username;
+  } else {
+    return username_now;
+  }
 }
 
 function try_enter_server() {
@@ -87,23 +79,11 @@ function try_enter_server() {
 function check_login_info(event) {
   const text = event[`text`].toString();
 
-  if (username_now === undefined) {
-    // 使用正则表达式提取用户名
-    const match = text.match(/#\s*(\w+)\s*欢迎加入/);
-
-    // 检查是否匹配到结果
-    if (match) {
-      username_now = match[1];
-      Chat.log("提取到您的用户名:" + username);
-    }
-  } else if (event[`text`].toString().includes(`You were kicked from 10th`)) {
+  if (text.includes(`You were kicked from 10th`)) {
     try_enter_server(); // 被踢回了登录大厅
-  } else if (event[`text`].toString().includes(`请输入 /login 密码 以登录`)) {
-    if (username_now === undefined) {
-      guess_login();
-    } else {
-      Chat.say(`/login ${getPasswordByUsername(username_now)}`);
-    }
+  } else if (text.includes(`请输入 /login 密码 以登录`)) {
+    Chat.say(`/login ${getPasswordByUsername(get_username())}`);
+
     try_enter_server();
   }
 }

@@ -61,7 +61,7 @@ function try_enter_server() {
         const title = bag.getContainerTitle();
 
         if (title === "选择服务器") {
-          bag.click(0); // 点击第一个服务器
+          bag.click(13); // 点击第一个服务器
           reconnect_times = 0; // 连接成功，重置重连次数
           Chat.log("已经确认连接亚欧大陆，请等待");
           break;

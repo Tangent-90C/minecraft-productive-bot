@@ -1,3 +1,81 @@
+
+// 配置参数区域
+const START_MINE_PATH = { x: 20495, y: 63, z: -21354 }; // 开始挖掘的路径点
+const WORKSHOP_POS = { x: 20527, y: 64, z: -21339 }; // 放东西的坐标，是走到箱子前的坐标，不是箱子的坐标
+const TOOL_CONTAINER = {
+    x: 20531,
+    y: 63,
+    z: -21336
+}; // 拿钻石稿的箱子的坐标，要求在前面的WORKSHOP_POS附近
+
+const SAVE_ORE_CONTAINER = {
+    x: 20526,
+    y: 66,
+    z: -21337,
+}; // 放收获矿物的箱子坐标，要求在前面的WORKSHOP_POS附近，建议在下面添加多个漏斗和箱子
+
+
+const TARGET_ORES = ["iron_ore",
+    "deepslate_iron_ore",
+    "gold_ore",
+    "deepslate_gold_ore",
+    "diamond_ore",
+    "deepslate_diamond_ore"]; // 要挖掘的矿物列表，铜矿"copper_ore", "deepslate_copper_ore" 太多了，暂时不挖
+const HOSTILE_MOBS = [
+    "minecraft:zombie",
+    "minecraft:skeleton",
+    "minecraft:creeper",
+    "minecraft:spider",
+]; // 敌对生物列表，bot会自动停下攻击这些生物
+
+const RANGED_HOSTILES = ["minecraft:skeleton"]; // 远程敌对生物列表，在它们注视你时，bot会警告你
+
+const need_save_item = [
+    "minecraft:diamond_pickaxe", // 钻石稿
+    "minecraft:diamond_shovel",  // 钻石铲子
+    "minecraft:backed_potato", // 考土豆
+    "minecraft:bread" // 面包
+]; // 这些物品不会被放到箱子里，而是保留到背包里
+
+const need_ore_item = [
+    "minecraft:raw_iron", // 生铁
+    "minecraft:raw_copper", // 铜矿
+    "minecraft:raw_gold", // 金块
+    "minecraft:diamond", // 钻石
+]; // 这个参数暂时没用
+
+const food_item = [
+    "minecraft:baked_potato",
+    "minecraft:bread"
+] // 食物列表，bot在饥饿时会自动吃（不会吃饱，避免回血浪费粮食）
+
+const weapon_item = [
+    "minecraft:diamond_pickaxe",
+    "minecraft:diamond_shovel",
+] // 武器列表，bot会自动换武器攻击敌对生物
+
+const garbage_item = [
+    "minecraft:cobblestone",
+    "minecraft:diorite",
+    "minecraft:andesite",
+    "minecraft:granite",
+    "minecraft:cobbled_deepslate",
+    "minecraft:tuff",
+] // 这些物品会被丢弃，不会被放到箱子里
+
+const NEAR_HOSTILE_DISTANCE = 4.0; // 附近敌对生物的距离，小于这个距离时，bot会自动停下攻击敌对生物
+const CHECK_SKELETON_DISTANCE = 16; // 检查骷髅的距离，小于这个距离时，bot会警告你
+const MIN_FOOL_LEVEL = 10; // 饥饿值低于这个值时，bot会自动吃食物
+const YAW_ALLOW = 12; // 骷髅看你时的水平角度容差
+const PITCH_ALLOW = 15; // 骷髅看你时的垂直角度容差
+
+const COME_BACK_HOME_BUTTON = "key.keyboard.h"; // 返回工作室的按键，按下这个按键时，bot会自动返回工作室（按久点，每0.25秒才检测一次按键)
+
+Chat.say('#blocksToDisallowBreaking white_bed,chest,hopper'); // 禁止破坏白床、箱子、漏斗
+
+// 配置区域结束
+
+
 //#blocksToDisallowBreaking white_bed,chest,hopper
 
 const BaritoneAPI = Java.type("baritone.api.BaritoneAPI");
@@ -6,79 +84,15 @@ const GoalXYZ = Java.type("baritone.api.pathing.goals.GoalBlock");
 
 const baritone = BaritoneAPI.getProvider().getPrimaryBaritone();
 
-const WAIT_REACT_TIME = 1000;
-
-// 配置参数
-const HOME_COORD = "100 64 200"; // 替换为家的实际坐标
-const START_MINE_PATH = { x: 20495, y: 63, z: -21354 }; // 开始挖掘的路径点
-const WORKSHOP_POS = { x: 20527, y: 64, z: -21339 }; // 放东西的坐标
 
 let auto_attack_index = 0;
 let tick_count = 0;
+let is_attack_ing = false;
 
 
-const TARGET_ORES = ["iron_ore", "deepslate_iron_ore"]; // 要挖掘的矿物列表
-const HOSTILE_MOBS = [
-    "minecraft:zombie",
-    "minecraft:skeleton",
-    "minecraft:creeper",
-    "minecraft:spider",
-]; // 敌对生物列表
-
-const RANGED_HOSTILES = ["minecraft:skeleton"];
-
-const need_save_item = [
-    "minecraft:diamond_pickaxe",
-    "minecraft:diamond_shovel",
-    "minecraft:backed_potato",
-    "minecraft:bread"
-];
-
-const need_ore_item = [
-    "minecraft:raw_iron",
-    "minecraft:raw_copper",
-    "minecraft:raw_gold",
-    "minecraft:diamond",
-];
-
-const food_item = [
-    "minecraft:baked_potato",
-    "minecraft:bread"
-]
-
-const weapon_item = [
-    "minecraft:diamond_pickaxe",
-    "minecraft:diamond_shovel",
-]
-
-const garbage_item = [
-    "minecraft:cobblestone",
-    "minecraft:diorite",
-    "minecraft:andesite",
-    "minecraft:granite",
-    "minecraft:cobbled_deepslate"
-]
-
-const TOOL_CONTAINER = {
-    x: 20526,
-    y: 66,
-    z: -21337
-};
-
-const SAVE_ORE_CONTAINER = {
-    x: 20526,
-    y: 66,
-    z: -21337,
-};
+const WAIT_REACT_TIME = 1000;
 const WAIT_NETWORK_TIME = 1000;
 
-const NEAR_HOSTILE_DISTANCE = 4.0;
-const CHECK_SKELETON_DISTANCE = 16;
-const MIN_FOOL_LEVEL = 10;
-const YAW_ALLOW = 12;
-const PITCH_ALLOW = 45; // 新增垂直角度容差
-
-const COME_BACK_HOME_BUTTON = "key.keyboard.h";
 
 // 状态变量
 let isMining = false;
@@ -177,20 +191,33 @@ function state_machine() {
             }
 
 
-            if (enemy_pos_list != null && enemy_pos_list.length > 0) {
-                Chat.say(
-                    `#goto ${enemy_pos_list[0].x} ${enemy_pos_list[0].y} ${enemy_pos_list[0].z}`
-                );
-                Time.sleep(1500); // 让bot先走到敌人面前
-            }
+            // if (enemy_pos_list != null && enemy_pos_list.length > 0) {
+            //     Chat.say(
+            //         `#goto ${enemy_pos_list[0].x} ${enemy_pos_list[0].y} ${enemy_pos_list[0].z}`
+            //     );
+            //     Time.sleep(1500); // 让bot先走到敌人面前
+            // }
             state_now = "attack_hostiles";
             break;
 
+
         case "attack_hostiles":
-            if (attackNearestHostile()) {
-            } else {
-                state_now = "hostiles_dead";
+            if (!is_attack_ing) {
+                is_attack_ing = true;
+                try {
+                    if (attackNearestHostile()) {
+                    } else {
+                        state_now = "hostiles_dead";
+                    }
+                }
+                catch (e) {
+                    Chat.log(e);
+                    state_now = "hostiles_dead";
+                }
+
+                is_attack_ing = false;
             }
+
             break; // 攻击最近的敌对生物
 
         case "hostiles_dead":
@@ -275,12 +302,11 @@ function attackMob(entity) {
     Chat.log(weapon_item.includes(hand_item));
     currentTarget = entity;
 
-    //Chat.say('#pause')
     if (weapon_item.includes(hand_item) && (entity.isAlive() && getDistance(entity) < 5)) {
         interact.attack(entity);
         Chat.log("攻击");
     }
-    {
+    else {
         swap_slot(inventory, hand_slot, item_slot);
         Time.sleep(50);
         if (entity.isAlive() && getDistance(entity) < 5) {
@@ -394,8 +420,6 @@ function findNearestHostile() {
 }
 
 function findStaringRangedHostiles() {
-    // const player = Player.getPlayer();
-    // const playerPos = player.getPos();
     const playerPos = Player.getPlayer().getEyePos();
 
     return World.getEntities().filter((entity) => {
@@ -506,37 +530,53 @@ function drop_items(item_ids) { // 参数改为复数形式
     }
 }
 
+let is_eating = false;
+
 function take_lunch() {
-    const inventory = Player.openInventory();
-    const interact = Player.getInteractionManager();
-    let hand_index = inventory.getSelectedHotbarSlotIndex();
-    let hand_slots_list = inventory.getSlots(`hotbar`);
-    let hand_slot = hand_slots_list[hand_index];
-    const hand_item = inventory.getSlot(hand_slot).getItemId();
-    const food_item_in_bag = food_item.filter(item => inventory.getItemCount().get(item) > 0);
-
-
-    // 判断包里有没有食物
-    if (food_item_in_bag.length == 0) {
-        Chat.log("没食物了");
+    if (is_eating) {
+        return;
     }
-    else {
-        let item_slot = inventory.findItem(food_item_in_bag[0])[0];
-        Chat.say('#pause')
-        if (food_item.includes(hand_item)) {
-            // 直接吃
-            interact.holdInteract(40);
-            Time.sleep(1000); // 等待食用完成
+    is_eating = true;
+
+    try {
+        const inventory = Player.openInventory();
+        const interact = Player.getInteractionManager();
+        let hand_index = inventory.getSelectedHotbarSlotIndex();
+        let hand_slots_list = inventory.getSlots(`hotbar`);
+        let hand_slot = hand_slots_list[hand_index];
+        const hand_item = inventory.getSlot(hand_slot).getItemId();
+        const food_item_in_bag = food_item.filter(item => inventory.getItemCount().get(item) > 0);
+
+
+        // 判断包里有没有食物
+        if (food_item_in_bag.length == 0) {
+            Chat.log("没食物了");
         }
         else {
-            swap_slot(inventory, hand_slot, item_slot);
-            interact.holdInteract(40);
-            Time.sleep(1000); // 等待食用完成
-            swap_slot(inventory, hand_slot, item_slot);
+            let item_slot = inventory.findItem(food_item_in_bag[0])[0];
+            Chat.say('#pause')
+            if (food_item.includes(hand_item)) {
+                // 直接吃
+                interact.holdInteract(40);
+                Time.sleep(1000); // 等待食用完成
+            }
+            else {
+                swap_slot(inventory, hand_slot, item_slot);
+                interact.holdInteract(40);
+                Time.sleep(1000); // 等待食用完成
+                swap_slot(inventory, hand_slot, item_slot);
+            }
+            Chat.say('#resume')
         }
-        Chat.say('#resume')
     }
+    catch (e) {
+        Chat.log(e);
+    }
+    is_eating = false;
+
 }
+
+let is_talking = false;
 
 function take_tools() {
     const TARGET_TOOL = "minecraft:diamond_pickaxe";
@@ -548,6 +588,10 @@ function take_tools() {
     if (currentCount >= REQUIRED_COUNT) {
         return;
     }
+    if (is_talking) {
+        return;
+    }
+    is_talking = true;
 
     // 打开工具箱
     const interact = Player.getInteractionManager();
@@ -563,9 +607,10 @@ function take_tools() {
         const item = containerInv.getSlot(slot)?.getItemId();
         if (item === TARGET_TOOL) {
             containerInv.quick(slot);
-            Time.sleep(200);
+
 
             if ((inv.getItemCount().get(TARGET_TOOL) || 0) >= REQUIRED_COUNT) {
+                Time.sleep(200);
                 break;
             }
         }
@@ -573,6 +618,7 @@ function take_tools() {
 
     // 关闭容器
     containerInv.close();
+    is_talking = false;
     Time.sleep(500);
 }
 
